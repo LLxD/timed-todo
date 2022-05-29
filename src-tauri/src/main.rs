@@ -4,27 +4,59 @@
 )]
 
 #[tauri::command]
-fn my_custom_command(invoke_message: String) {
-  use ejdb::bson;
-  use ejdb::{Database, DatabaseOpenMode};
-  let db = Database::open_with_mode("src-tauri/db", DatabaseOpenMode::CREATE).unwrap();
-  let coll = db.collection("some_collection").unwrap();
-  let mut d = bson! {
-      "name" => invoke_message,
-      "count" => 10
+fn add_new_task(title: String, description: String, time: String, previous_revision_time: u32) {
+  use jfs::Store;
+  use serde::{Deserialize, Serialize};
+  let mut cfg = jfs::Config::default();
+  cfg.single = true;
+  #[derive(Serialize, Deserialize)]
+  struct Task {
+    title: String,
+    description: String,
+    time: String,
+    previous_revision_time: u32,
+  }
+  let db = Store::new_with_cfg("data", cfg).unwrap();
+  let task = Task {
+    title: title.to_owned(),
+    description: description.to_owned(),
+    time: time.to_owned(),
+    previous_revision_time: previous_revision_time.to_owned(),
   };
-  let inserted_id = coll.save(&d).unwrap();
+  db.save(&task).unwrap();
+}
 
-  d.insert("_id", inserted_id.clone());
-  let d2 = coll.load(&inserted_id).unwrap().unwrap();
-  assert_eq!(d, d2);
-  println!("I was invoked from JS!");
+#[tauri::command]
+fn remove_task(id: String) {
+  use jfs::Store;
+  let mut cfg = jfs::Config::default();
+  cfg.single = true;
+  let db = Store::new_with_cfg("data", cfg).unwrap();
+  db.delete(&id).unwrap();
+}
+
+#[tauri::command]
+fn update_task(
+  id: String,
+  title: String,
+  description: String,
+  time: String,
+  previous_revision_time: u32,
+) {
+  let mut cfg = jfs::Config::default();
+  cfg.single = true;
+  remove_task(id);
+  add_new_task(title, description, time, previous_revision_time)
 }
 
 fn main() {
   tauri::Builder::default()
     // This is where you pass in your commands
-    .invoke_handler(tauri::generate_handler![my_custom_command])
+    .invoke_handler(tauri::generate_handler![
+      add_new_task,
+      remove_task,
+      update_task
+    ])
     .run(tauri::generate_context!())
     .expect("failed to run app");
 }

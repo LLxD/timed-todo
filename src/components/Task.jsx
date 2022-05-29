@@ -1,22 +1,59 @@
-// With the Tauri API npm package:
 import { invoke } from "@tauri-apps/api/tauri";
-// With the Tauri global script, enabled when `tauri.conf.json > build > withGlobalTauri` is set to true:
+import { useTimer } from "react-timer-hook";
 
-// Invoke the command
+const Job = ({ task, id }) => {
+  const conclusionDate = new Date(Date.parse(task.time));
+  const { seconds, minutes, hours, days } = useTimer({
+    autoStart: true,
+    expiryTimestamp: conclusionDate,
+    onExpire: () => console.warn("onExpire called"),
+  });
 
-const Task = () => {
+  let nextTime;
+  if (task.previous_revision_time === 7) {
+    nextTime = 15;
+  } else if (task.previous_revision_time === 15) {
+    nextTime = 30;
+  } else {
+    nextTime = 30;
+  }
   return (
-    <div>
-      Task{" "}
+    <div
+      className={`border-4 p-4 m-2 ${
+        days > 3 ? "bg-green-500 " : "bg-red-500"
+      } text-white`}
+    >
+      <h1 className="text-xl">{task.title}</h1>
+      <h4 className="text-sm">{task.description}</h4>
+      <h5 className="text-sm">
+        <span>{days} dias</span> e{" "}
+        <span>{hours} horas até a próxima revisão</span>
+      </h5>
       <button
+        className="text-white p-2 border-green-500 hover:shadow-lg shadow-black transition-shadow text-sm border-4 rounded bg-green-500"
         onClick={() =>
-          invoke("my_custom_command", { invokeMessage: "agora foi" })
+          invoke("update_task", {
+            id: id,
+            title: task.title,
+            description: task.description,
+            previous_revision_time: nextTime,
+          })
         }
       >
-        Salvar
+        Revisei
+      </button>
+      <button
+        className="text-red-500"
+        onClick={() =>
+          invoke("remove_task", {
+            id: id,
+          })
+        }
+      >
+        X
       </button>
     </div>
   );
 };
 
-export default Task;
+export default Job;
